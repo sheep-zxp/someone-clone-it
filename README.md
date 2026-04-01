@@ -37,16 +37,70 @@ Claude Code UI
 
 👉 实现：Claude UI + 任意大模型
 
-🚀 快速开始
-1️⃣ 安装依赖
+⚡最重要：怎么打包成 EXE
+1️⃣ 先安装依赖
 bun install
+2️⃣ 一键打包
+npm run build:windows-exe
+3️⃣ 打包完成后
 
-或：
+会生成：
 
-npm install
-2️⃣ 配置环境变量
-cp .env.example .env
-3️⃣ 选择 Provider（核心）
+dist/
+ ├── Claude.exe
+ ├── claude_rename.exe
+🧠 两个 exe 是干嘛的？
+🟢 Claude.exe
+
+👉 原版入口（基本不用）
+
+🔥 claude_rename.exe（重点用这个）
+
+👉 你改 API / 接大模型都用它
+
+🧪 第一次运行会让你输入这些👇
+
+打开：
+
+claude_rename.exe
+
+你会看到：
+
+Welcome name:
+API Base URL:
+Model name:
+API Key:
+🔥 怎么填（最关键）
+✅ 用 GPT（OpenAI）
+Base URL:
+https://api.openai.com/v1
+
+Model:
+gpt-4.1
+
+API Key:
+sk-xxx
+
+⚠️ 必须先充值，不然报 429
+
+✅ 用 Kimi（推荐国内）
+Base URL:
+https://api.moonshot.cn/v1
+
+Model:
+moonshot-v1-8k
+
+API Key:
+你的 key
+✅ 用 MiniMax（最稳）
+Base URL:
+https://api.minimaxi.com/anthropic
+
+Model:
+MiniMax-M2.7-highspeed
+
+API Key:
+你的 key
 🟢 方式一：Anthropic-compatible（推荐先跑通）
 HAHA_API_PROVIDER=anthropic-compatible
 
