@@ -1,0 +1,17 @@
+# 基础忽略
+node_modules
+.env
+.env.*
+!.env.example
+
+# 排除编译输出和大文件 (防止 GitHub 100MB 限制报错)
+dist/
+build/
+bin/
+*.exe
+*.bun-build
+
+# 排除日志和缓存
+*.log
+.eslintcache
+.cache/
