@@ -175,3 +175,6 @@ src/
 ## Disclaimer
 
 本仓库基于 2026-03-31 从 Anthropic npm registry 泄露的 Claude Code 源码。所有原始源码版权归 [Anthropic](https://www.anthropic.com) 所有。仅供学习和研究用途。
+<img width="1173" height="404" alt="image" src="https://github.com/user-attachments/assets/4667601e-141f-4a46-8f86-d615cf7ec076" />
+
+<img width="1124" height="1051" alt="844e28b06c28456c23c0219a3d18802a" src="https://github.com/user-attachments/assets/0e8e031e-0018-46d9-a5ce-96729fb70b2b" />
