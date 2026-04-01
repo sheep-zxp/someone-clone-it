@@ -146,7 +146,7 @@ export function applyClaudeRenameProfile(): void {
   if (provider === 'google') {
     process.env.GOOGLE_BASE_URL ??=
       process.env.GOOGLE_OPENAI_BASE_URL ||
-      'https://generativelanguage.googleapis.com/v1beta/openai'
+      'https://generativelanguage.googleapis.com/v1beta'
     process.env.GOOGLE_API_KEY ??=
       process.env.GOOGLE_AUTH_TOKEN ||
       process.env.ANTHROPIC_AUTH_TOKEN ||

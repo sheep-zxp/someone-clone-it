@@ -254,7 +254,7 @@ export function buildAPIProviderProperties(): Property[] {
       value: 'Google'
     }, {
       label: 'Google base URL',
-      value: process.env.GOOGLE_BASE_URL || process.env.GOOGLE_OPENAI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai'
+      value: process.env.GOOGLE_BASE_URL || process.env.GOOGLE_OPENAI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta'
     }];
   }
   if (hahaProvider && hahaProvider !== 'openai') {

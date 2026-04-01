@@ -14,23 +14,32 @@ import {
 } from '../../utils/messages.js'
 import { API_ERROR_MESSAGE_PREFIX } from './errors.js'
 
-type GoogleUsage = {
-  prompt_tokens?: number
-  completion_tokens?: number
+type GooglePart = {
+  text?: string
 }
 
-type GoogleChunk = {
-  id?: string
-  choices?: Array<{
-    delta?: { content?: string }
-    finish_reason?: string | null
+type GoogleContent = {
+  role?: 'user' | 'model'
+  parts?: GooglePart[]
+}
+
+type GoogleGenerateResponse = {
+  candidates?: Array<{
+    content?: GoogleContent
+    finishReason?: string
   }>
-  usage?: GoogleUsage
+  usageMetadata?: {
+    promptTokenCount?: number
+    candidatesTokenCount?: number
+  }
+  error?: {
+    message?: string
+  }
 }
 
 function getGoogleBaseUrl(): string {
   const fromEnv = process.env.GOOGLE_BASE_URL || process.env.GOOGLE_OPENAI_BASE_URL
-  const raw = (fromEnv || 'https://generativelanguage.googleapis.com/v1beta/openai').trim()
+  const raw = (fromEnv || 'https://generativelanguage.googleapis.com/v1beta').trim()
   return raw.endsWith('/') ? raw.slice(0, -1) : raw
 }
 
@@ -38,30 +47,55 @@ function getGoogleKey(): string | null {
   return process.env.GOOGLE_API_KEY || null
 }
 
-function toChatMessages(messages: Message[], systemPrompt: SystemPrompt) {
-  const out: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> =
-    []
+function normalizeGoogleModel(model: string): string {
+  const trimmed = model.trim()
+  return trimmed.startsWith('models/') ? trimmed.slice('models/'.length) : trimmed
+}
+
+function toGoogleContents(messages: Message[], systemPrompt: SystemPrompt) {
+  const out: GoogleContent[] = []
   const systemText = systemPrompt.join('\n\n').trim()
-  if (systemText) out.push({ role: 'system', content: systemText })
+
+  if (systemText) {
+    out.push({
+      role: 'user',
+      parts: [{ text: `[System Instruction]\n${systemText}` }],
+    })
+  }
 
   for (const message of messages) {
     if (message.type === 'user') {
       const text = getUserMessageText(message)?.trim()
-      if (text) out.push({ role: 'user', content: text })
+      if (text) {
+        out.push({ role: 'user', parts: [{ text }] })
+      }
       continue
     }
     if (message.type === 'assistant') {
       const text = getAssistantMessageText(message)?.trim()
-      if (text) out.push({ role: 'assistant', content: text })
+      if (text) {
+        out.push({ role: 'model', parts: [{ text }] })
+      }
     }
   }
+
+  if (out.length === 0) {
+    out.push({ role: 'user', parts: [{ text: 'Hello' }] })
+  }
+
   return out
 }
 
 function mapFinishReason(reason: string | null | undefined): string {
-  if (reason === 'length') return 'max_tokens'
-  if (reason === 'tool_calls') return 'tool_use'
-  if (reason === 'content_filter') return 'refusal'
+  if (reason === 'MAX_TOKENS') return 'max_tokens'
+  if (
+    reason === 'SAFETY' ||
+    reason === 'RECITATION' ||
+    reason === 'BLOCKLIST' ||
+    reason === 'PROHIBITED_CONTENT'
+  ) {
+    return 'refusal'
+  }
   return 'end_turn'
 }
 
@@ -97,12 +131,13 @@ export async function* queryGoogleWithStreaming({
     return
   }
 
-  const url = `${getGoogleBaseUrl()}/chat/completions`
+  const modelId = normalizeGoogleModel(model)
+  const url =
+    `${getGoogleBaseUrl()}/models/${encodeURIComponent(modelId)}:generateContent` +
+    `?key=${encodeURIComponent(apiKey)}`
+  const startedAt = Date.now()
   const requestBody = {
-    model,
-    messages: toChatMessages(messages, systemPrompt),
-    stream: true,
-    stream_options: { include_usage: true },
+    contents: toGoogleContents(messages, systemPrompt),
   }
 
   let response: Response
@@ -111,8 +146,6 @@ export async function* queryGoogleWithStreaming({
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-        'x-goog-api-key': apiKey,
       },
       body: JSON.stringify(requestBody),
       signal,
@@ -128,12 +161,17 @@ export async function* queryGoogleWithStreaming({
     return
   }
 
-  if (!response.ok || !response.body) {
-    let detail = `${response.status} ${response.statusText}`
+  let body: GoogleGenerateResponse | null = null
+  if (response.ok) {
     try {
-      const text = await response.text()
-      if (text) detail = `${detail} - ${text}`
+      body = (await response.json()) as GoogleGenerateResponse
     } catch {}
+  }
+
+  if (!response.ok || !body) {
+    let detail = `${response.status} ${response.statusText}`
+    const message = body?.error?.message?.trim()
+    if (message) detail = `${detail} - ${message}`
     yield createAssistantAPIErrorMessage({
       content: `${API_ERROR_MESSAGE_PREFIX}: ${detail}`,
       apiError: 'unknown_error',
@@ -142,14 +180,12 @@ export async function* queryGoogleWithStreaming({
     return
   }
 
-  const decoder = new TextDecoder()
-  let buffer = ''
-  let content = ''
   let requestId = randomUUID()
-  let finishReason: string | null | undefined = null
-  let usage: GoogleUsage | undefined
-  let hasStarted = false
-  const startedAt = Date.now()
+  const content =
+    body.candidates?.[0]?.content?.parts
+      ?.map(part => part.text ?? '')
+      .join('') ?? ''
+  const finishReason = body.candidates?.[0]?.finishReason
 
   yield createStreamEvent({
     type: 'message_start',
@@ -171,58 +207,24 @@ export async function* queryGoogleWithStreaming({
       context_management: null,
     },
   }, 0)
+
   yield createStreamEvent({
     type: 'content_block_start',
     index: 0,
     content_block: { type: 'text', text: '' },
   })
 
-  const reader = response.body.getReader()
-  while (true) {
-    const { value, done } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    const events = buffer.split('\n\n')
-    buffer = events.pop() || ''
-
-    for (const event of events) {
-      const dataLines = event
-        .split('\n')
-        .filter(line => line.startsWith('data:'))
-        .map(line => line.slice(5).trim())
-      if (dataLines.length === 0) continue
-      const data = dataLines.join('\n')
-      if (data === '[DONE]') continue
-
-      let chunk: GoogleChunk | null = null
-      try {
-        chunk = JSON.parse(data) as GoogleChunk
-      } catch {
-        logForDebugging(`[Google] Failed to parse SSE chunk: ${data}`)
-      }
-      if (!chunk) continue
-
-      if (chunk.id) requestId = chunk.id
-      if (chunk.usage) usage = chunk.usage
-
-      const choice = chunk.choices?.[0]
-      if (!choice) continue
-      if (choice.finish_reason !== undefined) finishReason = choice.finish_reason
-
-      const deltaText = choice.delta?.content ?? ''
-      if (!deltaText) continue
-      content += deltaText
-      const ttftMs = !hasStarted ? Date.now() - startedAt : undefined
-      hasStarted = true
-      yield createStreamEvent(
-        {
-          type: 'content_block_delta',
-          index: 0,
-          delta: { type: 'text_delta', text: deltaText },
-        },
-        ttftMs,
-      )
-    }
+  if (content) {
+    yield createStreamEvent(
+      {
+        type: 'content_block_delta',
+        index: 0,
+        delta: { type: 'text_delta', text: content },
+      },
+      Date.now() - startedAt,
+    )
+  } else {
+    logForDebugging('[Google] Empty content returned from generateContent')
   }
 
   const assistantMessage: AssistantMessage = {
@@ -239,8 +241,8 @@ export async function* queryGoogleWithStreaming({
       stop_reason: mapFinishReason(finishReason),
       stop_sequence: null,
       usage: {
-        input_tokens: usage?.prompt_tokens ?? 0,
-        output_tokens: usage?.completion_tokens ?? 0,
+        input_tokens: body.usageMetadata?.promptTokenCount ?? 0,
+        output_tokens: body.usageMetadata?.candidatesTokenCount ?? 0,
         cache_creation_input_tokens: 0,
         cache_read_input_tokens: 0,
       } as never,

@@ -75,7 +75,7 @@ async function askRenameRuntimeConfig(): Promise<void> {
       provider === 'openai'
         ? 'https://api.openai.com/v1'
         : provider === 'google'
-          ? 'https://generativelanguage.googleapis.com/v1beta/openai'
+          ? 'https://generativelanguage.googleapis.com/v1beta'
         : 'https://openrouter.ai/api/v1/anthropic'
     const currentBaseUrl = (process.env[baseUrlEnvKey] || '').trim()
     const baseUrlPrompt = currentBaseUrl
