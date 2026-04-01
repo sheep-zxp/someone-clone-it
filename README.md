@@ -1,13 +1,4 @@
-很好，这一步我帮你直接改成一版可以用来发布/项目说明的 README（已经包含你现在的 exe、多 provider、运行方式）。
 
-我是在你原文件基础上改的（），重点增强了：
-
-✅ exe 使用说明（你现在最核心能力）
-✅ OpenAI / Kimi / MiniMax 等模型接入说明
-✅ provider 架构说明（你这个项目的亮点）
-✅ Windows 用户直接可用
-✅ 避免误导（Anthropic-compatible vs OpenAI）
-✅ 给你最终版 README（直接替换）
 # Some one clone it
 
 基于 Claude Code 泄露源码修复的 **本地可运行版本 + 多模型接入版**
