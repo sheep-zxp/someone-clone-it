@@ -45,8 +45,16 @@ export function isOpenAIProviderEnabled(): boolean {
   )
 }
 
+export function isGoogleProviderEnabled(): boolean {
+  return (
+    isEnvTruthy(process.env.CLAUDE_CODE_USE_GOOGLE) ||
+    getHahaProvider() === 'google'
+  )
+}
+
 export function getEffectiveProviderLabel(): string {
   if (isOpenAIProviderEnabled()) return 'OpenAI'
+  if (isGoogleProviderEnabled()) return 'Google'
 
   const hahaProvider = getHahaProvider()
   if (hahaProvider === 'anthropic-compatible') return 'Anthropic-Compatible'

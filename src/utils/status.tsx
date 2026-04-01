@@ -11,7 +11,7 @@ import { getDisplayPath } from './file.js';
 import { formatNumber } from './format.js';
 import { getIdeClientName, type IDEExtensionInstallationStatus, isJetBrainsIde, toIDEDisplayName } from './ide.js';
 import { getClaudeAiUserDefaultModelDescription, modelDisplayString } from './model/model.js';
-import { getAPIProvider, getEffectiveProviderLabel, getHahaProvider, isOpenAIProviderEnabled } from './model/providers.js';
+import { getAPIProvider, getEffectiveProviderLabel, getHahaProvider, isGoogleProviderEnabled, isOpenAIProviderEnabled } from './model/providers.js';
 import { getMTLSConfig } from './mtls.js';
 import { checkInstall } from './nativeInstaller/index.js';
 import { getProxyUrl } from './proxy.js';
@@ -246,6 +246,15 @@ export function buildAPIProviderProperties(): Property[] {
     }, {
       label: 'OpenAI base URL',
       value: process.env.OPENAI_BASE_URL || process.env.OPENAI_API_BASE_URL || 'https://api.openai.com/v1'
+    }];
+  }
+  if (isGoogleProviderEnabled()) {
+    return [{
+      label: 'API provider',
+      value: 'Google'
+    }, {
+      label: 'Google base URL',
+      value: process.env.GOOGLE_BASE_URL || process.env.GOOGLE_OPENAI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai'
     }];
   }
   if (hahaProvider && hahaProvider !== 'openai') {

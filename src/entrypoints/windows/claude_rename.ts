@@ -45,12 +45,14 @@ async function askRenameRuntimeConfig(): Promise<void> {
 
     const providerCurrent = getRenameProvider()
     const providerPrompt =
-      `Provider [openai/anthropic-compatible] ` +
+      `Provider [openai/google/anthropic-compatible] ` +
       `(current: ${providerCurrent}, Enter to keep): `
     const providerInput = (await rl.question(providerPrompt)).trim().toLowerCase()
     const provider =
       providerInput === 'openai'
         ? 'openai'
+        : providerInput === 'google'
+          ? 'google'
         : providerInput === 'anthropic-compatible'
           ? 'anthropic-compatible'
           : providerCurrent
@@ -58,14 +60,22 @@ async function askRenameRuntimeConfig(): Promise<void> {
     updates.HAHA_API_PROVIDER = provider
 
     const baseUrlEnvKey =
-      provider === 'openai' ? 'OPENAI_BASE_URL' : 'ANTHROPIC_BASE_URL'
+      provider === 'openai'
+        ? 'OPENAI_BASE_URL'
+        : provider === 'google'
+          ? 'GOOGLE_BASE_URL'
+          : 'ANTHROPIC_BASE_URL'
     const baseUrlLabel =
       provider === 'openai'
         ? 'OpenAI API Base URL'
+        : provider === 'google'
+          ? 'Google API Base URL'
         : 'Anthropic-compatible API Base URL'
     const baseUrlExample =
       provider === 'openai'
         ? 'https://api.openai.com/v1'
+        : provider === 'google'
+          ? 'https://generativelanguage.googleapis.com/v1beta/openai'
         : 'https://openrouter.ai/api/v1/anthropic'
     const currentBaseUrl = (process.env[baseUrlEnvKey] || '').trim()
     const baseUrlPrompt = currentBaseUrl
@@ -83,6 +93,8 @@ async function askRenameRuntimeConfig(): Promise<void> {
       ? `Model name (current: ${currentModel}, Enter to keep): `
       : provider === 'openai'
         ? 'Model name (e.g. gpt-4.1): '
+        : provider === 'google'
+          ? 'Model name (e.g. gemini-2.5-pro): '
         : 'Model name (e.g. MiniMax-M2.7-highspeed): '
     const modelInput = (await rl.question(modelPrompt)).trim()
     if (modelInput) {
@@ -94,16 +106,31 @@ async function askRenameRuntimeConfig(): Promise<void> {
       updates.ANTHROPIC_DEFAULT_SONNET_MODEL = modelInput
       updates.ANTHROPIC_DEFAULT_HAIKU_MODEL = modelInput
       updates.ANTHROPIC_DEFAULT_OPUS_MODEL = modelInput
+      if (provider === 'openai') {
+        process.env.OPENAI_MODEL = modelInput
+        updates.OPENAI_MODEL = modelInput
+      }
+      if (provider === 'google') {
+        process.env.GOOGLE_MODEL = modelInput
+        updates.GOOGLE_MODEL = modelInput
+      }
     }
 
     const keyEnvKey =
-      provider === 'openai' ? 'OPENAI_API_KEY' : 'ANTHROPIC_AUTH_TOKEN'
-    const keyPrompt = `${keyEnvKey} (Enter to keep current env value, input hidden is not supported): `
-    const keyInput = (await rl.question(keyPrompt)).trim()
+      provider === 'openai'
+        ? 'OPENAI_API_KEY'
+        : provider === 'google'
+          ? 'GOOGLE_API_KEY'
+          : 'ANTHROPIC_AUTH_TOKEN'
+    rl.pause()
+    const keyInput = await questionHidden(
+      `${keyEnvKey} (input hidden, Enter to keep current): `,
+    )
+    rl.resume()
     if (keyInput) {
       process.env[keyEnvKey] = keyInput
       updates[keyEnvKey] = keyInput
-      if (provider !== 'openai') {
+      if (provider === 'anthropic-compatible') {
         process.env.ANTHROPIC_API_KEY = keyInput
         updates.ANTHROPIC_API_KEY = keyInput
       }
@@ -160,4 +187,42 @@ function formatEnvValue(value: string): string {
     return value
   }
   return `"${value.replaceAll('"', '\\"')}"`
+}
+
+async function questionHidden(prompt: string): Promise<string> {
+  if (!stdin.isTTY || !stdout.isTTY) return ''
+  stdout.write(prompt)
+  const wasRaw = stdin.isRaw
+  stdin.setRawMode?.(true)
+  stdin.resume()
+  let value = ''
+  try {
+    return await new Promise<string>(resolve => {
+      const onData = (chunk: string | Buffer) => {
+        const text = chunk.toString('utf8')
+        for (const ch of text) {
+          if (ch === '\r' || ch === '\n') {
+            stdout.write('\n')
+            stdin.off('data', onData)
+            resolve(value.trim())
+            return
+          }
+          if (ch === '\u0003') {
+            stdout.write('\n')
+            stdin.off('data', onData)
+            resolve('')
+            return
+          }
+          if (ch === '\b' || ch === '\u007f') {
+            value = value.slice(0, -1)
+            continue
+          }
+          value += ch
+        }
+      }
+      stdin.on('data', onData)
+    })
+  } finally {
+    stdin.setRawMode?.(Boolean(wasRaw))
+  }
 }

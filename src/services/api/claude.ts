@@ -22,6 +22,7 @@ import type { Stream } from '@anthropic-ai/sdk/streaming.mjs'
 import { randomUUID } from 'crypto'
 import {
   getAPIProvider,
+  isGoogleProviderEnabled,
   isOpenAIProviderEnabled,
   isFirstPartyAnthropicBaseUrl,
 } from 'src/utils/model/providers.js'
@@ -230,6 +231,7 @@ import { getInitializationStatus } from '../lsp/manager.js'
 import { isToolFromMcpServer } from '../mcp/utils.js'
 import { withStreamingVCR, withVCR } from '../vcr.js'
 import { CLIENT_REQUEST_ID_HEADER, getAnthropicClient } from './client.js'
+import { queryGoogleWithStreaming } from './google.js'
 import { queryOpenAIWithStreaming } from './openai.js'
 import {
   API_ERROR_MESSAGE_PREFIX,
@@ -1065,6 +1067,15 @@ async function* queryModel(
 
   if (isOpenAIProviderEnabled()) {
     yield* queryOpenAIWithStreaming({
+      messages,
+      systemPrompt,
+      signal,
+      model: options.model,
+    })
+    return
+  }
+  if (isGoogleProviderEnabled()) {
+    yield* queryGoogleWithStreaming({
       messages,
       systemPrompt,
       signal,

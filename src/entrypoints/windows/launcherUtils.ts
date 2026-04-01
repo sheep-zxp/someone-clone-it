@@ -107,10 +107,14 @@ export function applyClaudeRenameProfile(): void {
 
   const provider = getRenameProvider()
   process.env.HAHA_API_PROVIDER = provider
+  delete process.env.CLAUDE_CODE_USE_GOOGLE
   if (provider === 'openai') {
     process.env.CLAUDE_CODE_USE_OPENAI = '1'
   } else {
     delete process.env.CLAUDE_CODE_USE_OPENAI
+  }
+  if (provider === 'google') {
+    process.env.CLAUDE_CODE_USE_GOOGLE = '1'
   }
 
   if (provider === 'openrouter') {
@@ -140,8 +144,13 @@ export function applyClaudeRenameProfile(): void {
   }
 
   if (provider === 'google') {
-    process.env.ANTHROPIC_BASE_URL ??= process.env.GOOGLE_ANTHROPIC_BASE_URL
-    process.env.ANTHROPIC_AUTH_TOKEN ??= process.env.GOOGLE_API_KEY
+    process.env.GOOGLE_BASE_URL ??=
+      process.env.GOOGLE_OPENAI_BASE_URL ||
+      'https://generativelanguage.googleapis.com/v1beta/openai'
+    process.env.GOOGLE_API_KEY ??=
+      process.env.GOOGLE_AUTH_TOKEN ||
+      process.env.ANTHROPIC_AUTH_TOKEN ||
+      process.env.ANTHROPIC_API_KEY
     syncModelFrom('GOOGLE')
   }
 }
