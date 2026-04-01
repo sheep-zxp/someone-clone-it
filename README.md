@@ -1,8 +1,4 @@
-![Uploading 1.jpg…]()
-
-
-
-
+<img width="1265" height="629" alt="image" src="https://github.com/user-attachments/assets/0dcbdc4e-ec58-46fb-b18b-7ffc2e062287" /
 # Some one clone it
 
 基于 Claude Code 泄露源码修复的 **本地可运行版本 + 多模型接入版**
