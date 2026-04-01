@@ -1,4 +1,6 @@
-<img width="1265" height="629" alt="image" src="https://github.com/user-attachments/assets/0dcbdc4e-ec58-46fb-b18b-7ffc2e062287" /
+![1](https://github.com/user-attachments/assets/f15a9a90-45b9-4778-a0f8-bab63027cbf6)
+
+
 # Some one clone it
 
 基于 Claude Code 泄露源码修复的 **本地可运行版本 + 多模型接入版**
